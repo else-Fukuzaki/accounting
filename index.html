@@ -8,7 +8,13 @@
   </head>
   <body>
     <div class="container">
-      <h1>会社収支管理</h1>
+      <header class="app-header">
+        <h1>会社収支管理</h1>
+        <div class="user-info">
+          <span id="user-name">ユーザー名</span>
+          <button id="logout-btn">ログアウト</button>
+        </div>
+      </header>
 
       <!-- 入力フォーム -->
       <div class="input-form">
@@ -17,6 +23,7 @@
           <div class="form-group">
             <label for="date">日付:</label>
             <input type="date" id="date" required />
+            <small>※yyyy/mm/dd形式で表示されます</small>
           </div>
           <div class="form-group">
             <label for="description">内容:</label>
@@ -102,6 +109,7 @@
       </div>
     </div>
 
+    <script src="auth.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
