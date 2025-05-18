@@ -105,7 +105,9 @@ class UIManager {
 
   // フォーム送信処理
   handleFormSubmit() {
-    const date = document.getElementById('date').value;
+    const dateInput = document.getElementById('date').value;
+    // 日付をyyyy/mm/dd形式で保存するための処理
+    const date = dateInput;
     const description = document.getElementById('description').value;
     const type = document.getElementById('type').value;
     const amount = parseFloat(document.getElementById('amount').value);
@@ -209,7 +211,7 @@ class UIManager {
     transactions.forEach((transaction) => {
       const row = document.createElement('tr');
 
-      // 日付のフォーマット
+      // 日付のフォーマット（年/月/日形式）
       const date = new Date(transaction.date);
       const formattedDate = `${date.getFullYear()}/${String(
         date.getMonth() + 1
@@ -241,7 +243,7 @@ class UIManager {
 
 // アプリ初期化
 document.addEventListener('DOMContentLoaded', () => {
-  // 現在の日付をデフォルトとして設定
+  // 現在の日付をデフォルトとして設定（年/月/日形式に合わせて）
   document.getElementById('date').valueAsDate = new Date();
 
   // アプリケーション開始
