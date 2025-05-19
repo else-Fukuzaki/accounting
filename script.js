@@ -1,7 +1,171 @@
+// 認証管理クラス
+class AuthManager {
+  constructor() {
+    this.users = JSON.parse(localStorage.getItem('users')) || [];
+    this.currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+    this.initializeAuthForms();
+  }
+
+  // 認証フォームの初期化
+  initializeAuthForms() {
+    // フォーム切り替え処理
+    document.getElementById('show-register').addEventListener('click', (e) => {
+      e.preventDefault();
+      document
+        .getElementById('login-form-container')
+        .classList.remove('active');
+      document
+        .getElementById('register-form-container')
+        .classList.add('active');
+    });
+
+    document.getElementById('show-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      document
+        .getElementById('register-form-container')
+        .classList.remove('active');
+      document.getElementById('login-form-container').classList.add('active');
+    });
+
+    // 登録フォーム送信処理
+    document.getElementById('register-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleRegistration();
+    });
+
+    // ログインフォーム送信処理
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleLogin();
+    });
+  }
+
+  // ユーザー登録処理
+  handleRegistration() {
+    const name = document.getElementById('register-name').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+    const confirmPassword = document.getElementById(
+      'register-confirm-password'
+    ).value;
+    const errorElement = document.getElementById('register-error');
+
+    // 入力検証
+    if (!name || !email || !password) {
+      errorElement.textContent = '全ての項目を入力してください';
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      errorElement.textContent = 'パスワードが一致しません';
+      return;
+    }
+
+    if (password.length < 6) {
+      errorElement.textContent = 'パスワードは6文字以上で入力してください';
+      return;
+    }
+
+    // メールアドレスの重複チェック
+    if (this.users.some((user) => user.email === email)) {
+      errorElement.textContent = 'このメールアドレスは既に登録されています';
+      return;
+    }
+
+    // ユーザー登録
+    const newUser = {
+      id: Date.now().toString(),
+      name,
+      email,
+      // 実際のアプリではパスワードをハッシュ化すべきですが、
+      // クライアントサイドのみの実装ではセキュリティ上の制約があります
+      password: this.simpleHash(password),
+    };
+
+    this.users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(this.users));
+
+    // 登録成功後の処理
+    this.login(newUser);
+  }
+
+  // ログイン処理
+  handleLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errorElement = document.getElementById('login-error');
+
+    // 入力検証
+    if (!email || !password) {
+      errorElement.textContent = 'メールアドレスとパスワードを入力してください';
+      return;
+    }
+
+    // ユーザー認証
+    const user = this.users.find((user) => user.email === email);
+
+    if (!user || user.password !== this.simpleHash(password)) {
+      errorElement.textContent =
+        'メールアドレスまたはパスワードが正しくありません';
+      return;
+    }
+
+    // ログイン成功
+    this.login(user);
+  }
+
+  // ログイン実行（ページ遷移に変更）
+  login(user) {
+    // パスワードを含まないユーザー情報をセッションに保存
+    const sessionUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    };
+
+    this.currentUser = sessionUser;
+    localStorage.setItem('currentUser', JSON.stringify(sessionUser));
+
+    // ログインページを非表示、メインページを表示
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('main-page').style.display = 'block';
+
+    // メインアプリの初期化
+    app.initializeFinanceApp();
+  }
+
+  // ログアウト処理
+  logout() {
+    this.currentUser = null;
+    localStorage.removeItem('currentUser');
+
+    // メインページを非表示、ログインページを表示
+    document.getElementById('main-page').style.display = 'none';
+    document.getElementById('login-page').style.display = 'block';
+  }
+
+  // ユーザーがログインしているか確認
+  isLoggedIn() {
+    return this.currentUser !== null;
+  }
+
+  // 単純なハッシュ化関数（実際のアプリではより安全な方法を使用すべき）
+  simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // 32bit整数に変換
+    }
+    return hash.toString(16);
+  }
+}
+
 // データを管理するクラス
 class FinanceManager {
-  constructor() {
-    this.transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+  constructor(userId) {
+    this.userId = userId;
+    this.transactions = this.loadTransactions();
   }
 
   // 取引を追加
@@ -66,18 +230,27 @@ class FinanceManager {
     }, 0);
   }
 
-  // ローカルストレージにデータを保存
+  // ローカルストレージからユーザー固有のデータを読み込む
+  loadTransactions() {
+    const key = `transactions_${this.userId}`;
+    return JSON.parse(localStorage.getItem(key)) || [];
+  }
+
+  // ローカルストレージにユーザー固有のデータを保存
   saveTransactions() {
-    localStorage.setItem('transactions', JSON.stringify(this.transactions));
+    const key = `transactions_${this.userId}`;
+    localStorage.setItem(key, JSON.stringify(this.transactions));
   }
 }
 
 // UI操作を管理するクラス
 class UIManager {
-  constructor(financeManager) {
+  constructor(financeManager, authManager) {
     this.financeManager = financeManager;
+    this.authManager = authManager;
     this.initializeEventListeners();
     this.updateUI();
+    this.displayUserInfo();
   }
 
   // イベントリスナーの初期化
@@ -95,12 +268,25 @@ class UIManager {
       this.filterTransactions();
     });
 
+    // ログアウトボタンイベント
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      this.authManager.logout();
+    });
+
     // 月フィルターの初期設定（現在の月）
     const now = new Date();
     const monthInput = document.getElementById('month-filter');
     monthInput.value = `${now.getFullYear()}-${String(
       now.getMonth() + 1
     ).padStart(2, '0')}`;
+  }
+
+  // ユーザー情報の表示
+  displayUserInfo() {
+    const userNameElement = document.getElementById('user-name');
+    if (this.authManager.currentUser) {
+      userNameElement.textContent = this.authManager.currentUser.name;
+    }
   }
 
   // フォーム送信処理
@@ -134,9 +320,7 @@ class UIManager {
   resetForm() {
     document.getElementById('transaction-form').reset();
     // 日付は今日の日付をデフォルトに設定
-    document.getElementById('date').value = new Date()
-      .toISOString()
-      .split('T')[0];
+    document.getElementById('date').valueAsDate = new Date();
   }
 
   // 月フィルター処理
@@ -241,12 +425,43 @@ class UIManager {
   }
 }
 
-// アプリ初期化
-document.addEventListener('DOMContentLoaded', () => {
-  // 現在の日付をデフォルトとして設定（年/月/日形式に合わせて）
-  document.getElementById('date').valueAsDate = new Date();
+// メインアプリを管理するクラス
+class App {
+  constructor() {
+    this.authManager = new AuthManager();
+    this.checkAuthentication();
+  }
 
-  // アプリケーション開始
-  const financeManager = new FinanceManager();
-  const uiManager = new UIManager(financeManager);
+  // 認証状態を確認
+  checkAuthentication() {
+    if (this.authManager.isLoggedIn()) {
+      // ログイン済みの場合、メインページを表示
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('main-page').style.display = 'block';
+      this.initializeFinanceApp();
+    } else {
+      // 未ログインの場合、ログインページを表示
+      document.getElementById('login-page').style.display = 'block';
+      document.getElementById('main-page').style.display = 'none';
+    }
+  }
+
+  // 財務アプリの初期化
+  initializeFinanceApp() {
+    // 現在の日付をデフォルトとして設定
+    document.getElementById('date').valueAsDate = new Date();
+
+    // ユーザーIDに基づいてFinanceManagerを初期化
+    const userId = this.authManager.currentUser.id;
+    const financeManager = new FinanceManager(userId);
+
+    // UIManagerを初期化
+    const uiManager = new UIManager(financeManager, this.authManager);
+  }
+}
+
+// アプリ初期化
+let app;
+document.addEventListener('DOMContentLoaded', () => {
+  app = new App();
 });
